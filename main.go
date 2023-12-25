@@ -1,6 +1,8 @@
 package main
 
 import (
+	"bufio"
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -9,25 +11,16 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
-
 	"github.com/sirupsen/logrus"
-
-	"context"
 	"sync"
-
-	"github.com/google/generative-ai-go/genai"
-	"google.golang.org/api/iterator"
-	"google.golang.org/api/option"
 )
 
 var (
 	log     *logrus.Logger
 	logFile *os.File
-
-	client     *genai.Client
+	client     *http.Client
 	clientInit sync.Once
-	model      *genai.GenerativeModel
-	ctx        context.Context
+	post_url   string
 )
 
 // Message 结构体用于解析messages中的消息
@@ -45,10 +38,9 @@ type Data_body struct {
 func main() {
 	log_init()
 	defer logFile.Close()
-	defer client.Close()
 
 	http.HandleFunc("/v1/chat/completions", HandleGenerateRequest)
-	port := ":8080"
+	port := ":8880"
 	log.Printf("Server is listening on port %s...\n", port)
 	log.Fatal(http.ListenAndServe(port, nil))
 }
@@ -161,38 +153,67 @@ func google_ai(w http.ResponseWriter, Prompt string) {
 	clientInit.Do(InitializeGenerativeClient)
 
 	log.Debugln("对模型的提问", Prompt)
-	iter := model.GenerateContentStream(ctx, genai.Text(Prompt))
-	for {
-		resp, err := iter.Next()
-		if err == iterator.Done {
-			break
-		}
-		if err != nil {
-			log.Fatalln(err)
-		}
 
-		// 获取 resp
-		printResponse(w, resp)
+	payload := fmt.Sprintf(`{"contents":[{"parts":[{"text": "%s"}]}]}`, Prompt)
+
+	req, err := http.NewRequest("POST", post_url, bytes.NewBuffer([]byte(payload)))
+	if err != nil {
+		log.Debugln("Error creating request:", err)
 
 	}
+
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Transfer-Encoding", "chunked")
+
+	resp, err2 := client.Do(req)
+	if err2 != nil {
+		log.Debugln("Error making request:", err2)
+		return
+	}
+
+	// 获取 resp
+	printResponse(w, resp)
 
 }
 
-func printResponse(w http.ResponseWriter, resp *genai.GenerateContentResponse) {
-	for _, cand := range resp.Candidates {
-		if cand.Content != nil {
-			for _, part := range cand.Content.Parts {
-				log.Debugln(part)
-				stream_retrn(w, fmt.Sprintf("%s", part))
-			}
+func printResponse(w http.ResponseWriter, resp *http.Response) {
+	// 使用 bufio.Scanner 逐行读取响应内容
+	scanner := bufio.NewScanner(resp.Body)
+	for scanner.Scan() {
+		line := scanner.Text()
+		// 如果行中包含 "text"，则打印该行
+		if strings.Contains(line, "text") {
+			log.Debugln(line)
+			a := len(line)
+			log.Debugln(a)
+
+			b := strings.Index(line, "text")
+
+			log.Debugln(b)
+
+			// 删除开头和结尾多余的
+			c := line[b+8 : a-1]
+
+			// 去除多余符号
+			c = strings.Replace(c, "\\n", "\n", -1)
+
+			//index := strings.Index(line, "text:")
+			log.Debugln(c)
+			stream_retrn(w, c)
+			log.Debugln("-----------------")
+
 		}
 	}
-	log.Debugln("-----------------")
+
+	if err := scanner.Err(); err != nil {
+		log.Debugln("Error reading response body:", err)
+		return
+	}
+
 }
 
 // txt 文本，转流式 返回
 func stream_retrn(w http.ResponseWriter, datatmp string) {
-	datatmp = strings.Replace(datatmp, "\\n", "\n", -1)
 	for _, char := range datatmp {
 		fmt.Fprintf(w, "%c", char)
 		w.(http.Flusher).Flush() // 刷新缓冲区，将数据发送到客户端
@@ -204,17 +225,17 @@ func stream_retrn(w http.ResponseWriter, datatmp string) {
 
 // InitializeGenerativeClient initializes the generative AI client once.
 func InitializeGenerativeClient() {
-	ctx = context.Background()
+	post_url = "https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:streamGenerateContent?key=" + os.Getenv("GEMINI_API_KEY")
 
-	var err error
-
-	if os.Getenv("ALL_PROXY") != "" {
+	if os.Getenv("ALL_PROXY") == "" {
 		// 设置代理地址
 		proxyURL, err := url.Parse(os.Getenv("ALL_PROXY"))
 		if err != nil {
-			log.Debugln("Error parsing proxy URL:", err)
+			fmt.Println("Error parsing proxy URL:", err)
 			return
 		}
+
+		fmt.Println("使用 proxy:", proxyURL)
 
 		// 创建一个自定义的 Transport
 		transport := &http.Transport{
@@ -222,23 +243,15 @@ func InitializeGenerativeClient() {
 		}
 
 		// 使用自定义的 Transport 创建一个 http.Client
-		client_proxy := &http.Client{
+		client = &http.Client{
 			Transport: transport,
 		}
 
-		client, err = genai.NewClient(ctx, option.WithAPIKey(os.Getenv("GEMINI_API_KEY")), option.WithHTTPClient(client_proxy)) // 使用代理
-
 	} else {
-		client, err = genai.NewClient(ctx, option.WithAPIKey(os.Getenv("GEMINI_API_KEY")))
+		log.Debugln("直接连接")
+		client = &http.Client{}
 
 	}
-
-	if err != nil {
-		log.Fatal(err)
-	}
-	// defer client.Close()  // 在主函数进行关闭
-
-	model = client.GenerativeModel("gemini-pro")
 
 }
 
