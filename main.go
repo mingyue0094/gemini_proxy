@@ -205,9 +205,8 @@ func stream_retrn(w http.ResponseWriter, datatmp string) {
 func InitializeGenerativeClient() {
 	ctx = context.Background()
 	var err error
-	//client, err = genai.NewClient(ctx, option.WithAPIKey(os.Getenv("GEMINI_API_KEY")))
-	client, err = genai.NewClient(ctx, option.WithAPIKey("AIzaSyCrZ422BcTvpzRhYIsd5lbGozEzzbqIQVs"))
-
+	client, err = genai.NewClient(ctx, option.WithAPIKey(os.Getenv("GEMINI_API_KEY")))
+	
 	if err != nil {
 		log.Fatal(err)
 	}
