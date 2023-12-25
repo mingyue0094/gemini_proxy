@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
 	"os"
 	"path/filepath"
 	"strings"
@@ -204,9 +205,34 @@ func stream_retrn(w http.ResponseWriter, datatmp string) {
 // InitializeGenerativeClient initializes the generative AI client once.
 func InitializeGenerativeClient() {
 	ctx = context.Background()
+
 	var err error
-	client, err = genai.NewClient(ctx, option.WithAPIKey(os.Getenv("GEMINI_API_KEY")))
-	
+
+	if os.Getenv("ALL_PROXY") != "" {
+		// 设置代理地址
+		proxyURL, err := url.Parse(os.Getenv("ALL_PROXY"))
+		if err != nil {
+			log.Debugln("Error parsing proxy URL:", err)
+			return
+		}
+
+		// 创建一个自定义的 Transport
+		transport := &http.Transport{
+			Proxy: http.ProxyURL(proxyURL),
+		}
+
+		// 使用自定义的 Transport 创建一个 http.Client
+		client_proxy := &http.Client{
+			Transport: transport,
+		}
+
+		client, err = genai.NewClient(ctx, option.WithAPIKey(os.Getenv("GEMINI_API_KEY")), option.WithHTTPClient(client_proxy)) // 使用代理
+
+	} else {
+		client, err = genai.NewClient(ctx, option.WithAPIKey(os.Getenv("GEMINI_API_KEY")))
+
+	}
+
 	if err != nil {
 		log.Fatal(err)
 	}
