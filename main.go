@@ -227,7 +227,7 @@ func stream_retrn(w http.ResponseWriter, datatmp string) {
 func InitializeGenerativeClient() {
 	post_url = "https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:streamGenerateContent?key=" + os.Getenv("GEMINI_API_KEY")
 
-	if os.Getenv("ALL_PROXY") == "" {
+	if os.Getenv("ALL_PROXY") != "" {
 		// 设置代理地址
 		proxyURL, err := url.Parse(os.Getenv("ALL_PROXY"))
 		if err != nil {
