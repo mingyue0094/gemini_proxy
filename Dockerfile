@@ -10,6 +10,7 @@ FROM alpine:latest as tzdata
 RUN apk add --no-cache tzdata
 
 FROM scratch
+COPY --from=tzdata /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/ca-certificates.crt
 COPY --from=tzdata /usr/share/zoneinfo /usr/share/zoneinfo
 COPY --from=builder /app/main /app/main
 
