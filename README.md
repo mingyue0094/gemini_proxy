@@ -7,7 +7,10 @@
 
 # 下载镜像：
 
+```
 docker pull mingyue0094/gemini_proxy:20231225203659
+```
+
 
 # 启动容器
 
