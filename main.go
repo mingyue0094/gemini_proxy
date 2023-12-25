@@ -40,7 +40,7 @@ func main() {
 	defer logFile.Close()
 
 	http.HandleFunc("/v1/chat/completions", HandleGenerateRequest)
-	port := ":8880"
+	port := ":8080"
 	log.Printf("Server is listening on port %s...\n", port)
 	log.Fatal(http.ListenAndServe(port, nil))
 }
