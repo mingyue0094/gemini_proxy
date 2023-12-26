@@ -1,14 +1,7 @@
-# gemini_proxy
-兼容openai 格式、stream 接口。
-
-
-----
-
-
 # 下载镜像：
 
 ```
-docker pull mingyue0094/gemini_proxy:20231225203659
+docker pull mingyue0094/gemini_proxy:20231226070241
 ```
 
 
@@ -19,7 +12,7 @@ docker run --name gemini -itd --restart always \
 -p 8080:8080 -e TZ=Asia/Shanghai \
 -e ALL_PROXY=socks5://192.168.20.25:3000 \
 -e GEMINI_API_KEY=AI***********************************MM \
-mingyue0094/gemini_proxy:20231225203659
+mingyue0094/gemini_proxy:20231226064029
 ```
 
 -   ALL_PROXY 可选
@@ -54,3 +47,9 @@ http://ip:8080/v1
 ```
 http://ip:8080
 ```
+
+# hcfy.app 插件对应的， 自建翻译服务接口。
+```
+http://ip:8080/fyapp
+```
+ - 能单词，句子。整页翻译不动。
