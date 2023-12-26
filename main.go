@@ -344,6 +344,10 @@ func printResponse(w http.ResponseWriter, resp *http.Response) {
 		return
 	}
 
+	//回复结束
+	jsondata := []byte("data:[DONE]\n\n")
+	w.Write(jsondata)
+	w.(http.Flusher).Flush() // 刷新缓冲区，将数据发送到客户端
 }
 
 // txt 文本，转流式 返回
@@ -382,10 +386,6 @@ func stream_retrn(w http.ResponseWriter, datatmp string) {
 		w.(http.Flusher).Flush() // 刷新缓冲区，将数据发送到客户端
 
 	}
-	jsondata = []byte("data:[DONE]\n\n")
-	w.Write(jsondata)
-	w.(http.Flusher).Flush() // 刷新缓冲区，将数据发送到客户端
-
 }
 
 // InitializeGenerativeClient initializes the generative AI client once.
