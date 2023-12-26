@@ -58,7 +58,7 @@ func main() {
 
 	http.HandleFunc("/v1/chat/completions", HandleGenerateRequest)
 	http.HandleFunc("/fyapp", HandlehcfyappRequest)
-	port := ":8883"
+	port := ":8080"
 	log.Printf("Server is listening on port %s...\n", port)
 	log.Fatal(http.ListenAndServe(port, nil))
 }
