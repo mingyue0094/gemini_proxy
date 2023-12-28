@@ -331,11 +331,11 @@ func printResponse(w http.ResponseWriter, resp *http.Response) {
 			// /t 替换为4个空格
 			c = strings.Replace(c, "\t", "    ", -1)
 
-			// /" 替换为  "
-			c = strings.Replace(c, `/"`, `"`, -1)
+			// \" 替换为  "
+			c = strings.Replace(c, `\"`, `"`, -1)
 			
-			// /' 替换为  '
-			c = strings.Replace(c, "/'", "'", -1)
+			// \' 替换为  '
+			c = strings.Replace(c, "\'", "'", -1)
 			
 
 			//index := strings.Index(line, "text:")
