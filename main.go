@@ -333,10 +333,9 @@ func printResponse(w http.ResponseWriter, resp *http.Response) {
 
 			// \" 替换为  "
 			c = strings.Replace(c, `\"`, `"`, -1)
-			
+
 			// \' 替换为  '
-			c = strings.Replace(c, "\'", "'", -1)
-			
+			c = strings.Replace(c, `\'`, `'`, -1)
 
 			//index := strings.Index(line, "text:")
 			log.Debugln(c)
