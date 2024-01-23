@@ -1,7 +1,7 @@
 # 下载镜像：
 
 ```
-docker pull mingyue0094/gemini_proxy:20231226070241
+docker pull mingyue0094/gemini_proxy:20231228174134
 ```
 
 
@@ -12,7 +12,7 @@ docker run --name gemini -itd --restart always \
 -p 8080:8080 -e TZ=Asia/Shanghai \
 -e ALL_PROXY=socks5://192.168.20.25:3000 \
 -e GEMINI_API_KEY=AI***********************************MM \
-mingyue0094/gemini_proxy:20231226070241
+mingyue0094/gemini_proxy:20231228174134
 ```
 
 -   ALL_PROXY 可选
