@@ -175,6 +175,8 @@ func gemini_text_rqeusts(prompt string) string {
 	}
 }
 
+
+
 func HandleGenerateRequest(w http.ResponseWriter, r *http.Request) {
 	// 设置允许所有跨域请求的头部
 	w.Header().Set("Access-Control-Allow-Origin", "*")
@@ -251,7 +253,7 @@ func fun_post_Request(w http.ResponseWriter, body []byte) {
 // 调用 谷歌 ai
 func Generatetext(w http.ResponseWriter, body []byte) {
 
-	log.Debug("body:", body)
+	//log.Debug("body:", body)
 
 	// 解析JSON字符串
 	var data Data_body
@@ -261,7 +263,10 @@ func Generatetext(w http.ResponseWriter, body []byte) {
 		return
 	}
 
+	log.Debug("==== 请求 data  start  ====")
 	log.Debug(data)
+	log.Debug("==== 请求 data  end    ====")
+	
 
 	// 提取messages字段的所有内容
 	var message_txt string
@@ -310,39 +315,43 @@ func google_ai(w http.ResponseWriter, Prompt string) {
 func printResponse(w http.ResponseWriter, resp *http.Response) {
 	// 使用 bufio.Scanner 逐行读取响应内容
 	scanner := bufio.NewScanner(resp.Body)
+	content :=""  // 返回内容
 	for scanner.Scan() {
 		line := scanner.Text()
-		// 如果行中包含 "text"，则打印该行
-		if strings.Contains(line, "text") {
-			log.Debugln(line)
-			a := len(line)
-			log.Debugln(a)
+		content += line
 
-			b := strings.Index(line, "text")
 
-			log.Debugln(b)
+		// // 如果行中包含 "text"，则打印该行
+		// if strings.Contains(line, "text") {
+		// 	log.Debugln(line)
+		// 	a := len(line)
+		// 	log.Debugln(a)
+
+		// 	b := strings.Index(line, "text")
+
+		// 	log.Debugln(b)
 
 			// 删除开头和结尾多余的
-			c := line[b+8 : a-1]
+			// c := line[b+8 : a-1]
 
-			// 去除多余符号
-			c = strings.Replace(c, "\\n", "\n", -1)
+			// // 去除多余符号
+			// c = strings.Replace(c, "\\n", "\n", -1)
 
-			// /t 替换为4个空格
-			c = strings.Replace(c, "\t", "    ", -1)
+			// // /t 替换为4个空格
+			// c = strings.Replace(c, "\t", "    ", -1)
 
-			// \" 替换为  "
-			c = strings.Replace(c, `\"`, `"`, -1)
+			// // \" 替换为  "
+			// c = strings.Replace(c, `\"`, `"`, -1)
 
-			// \' 替换为  '
-			c = strings.Replace(c, `\'`, `'`, -1)
+			// // \' 替换为  '
+			// c = strings.Replace(c, `\'`, `'`, -1)
 
 			//index := strings.Index(line, "text:")
-			log.Debugln(c)
-			stream_retrn(w, c)
-			log.Debugln("-----------------")
+			// log.Debugln(c)
+			// stream_retrn(w, c)
+			// log.Debugln("-----------------")
 
-		}
+		// }
 	}
 
 	if err := scanner.Err(); err != nil {
@@ -350,10 +359,35 @@ func printResponse(w http.ResponseWriter, resp *http.Response) {
 		return
 	}
 
+	log.Debugln("==== 返回内容 start  ====")
+	log.Debugln(content)
+	log.Debugln("==== 返回内容 end  ====")
+
+	content = content_pare(content)
+	log.Debugln("==== 整理1  start  ====")
+	log.Debugln(content)
+	log.Debugln("==== 整理1  end  ====")
+
+	stream_retrn(w, "test")
 	//回复结束
 	jsondata := []byte("data:[DONE]\n\n")
 	w.Write(jsondata)
 	w.(http.Flusher).Flush() // 刷新缓冲区，将数据发送到客户端
+}
+
+func content_pare(c string) string {
+	// 去除多余符号
+	c = strings.Replace(c, "\\n", "\n", -1)
+
+	// /t 替换为4个空格
+	c = strings.Replace(c, "\t", "    ", -1)
+
+	// \" 替换为  "
+	c = strings.Replace(c, `\"`, `"`, -1)
+
+	// \' 替换为  '
+	c = strings.Replace(c, `\'`, `'`, -1)
+	return c	
 }
 
 // txt 文本，转流式 返回
