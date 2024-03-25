@@ -33,10 +33,20 @@ type Message_data struct {
 	Content string `json:"content"`
 }
 
+
+
+// Function 结构体
+type Fc struct{
+	FX map[string]interface{}		`json:"function"`
+}
+
 // post 请求的json 数据
 type Data_body struct {
 	Messages []Message_data `json:"messages"`
 	Model    string         `json:"model"`
+	Temperature float64		`json:"temperature"`
+	Top_p float64			`json:"top_p"`
+	Tools []Fc				`json:"tools"`
 }
 
 // stream 返回相关
@@ -250,6 +260,45 @@ func fun_post_Request(w http.ResponseWriter, body []byte) {
 
 }
 
+func stringify(data interface{}, indent string) string {
+	// json 接口数据，遍历提取 k v ，然后拼接为 string
+	switch v := data.(type) {
+	case map[string]interface{}:
+		result := `{`
+		for key, val := range v {
+			if key != "url"{
+				result += indent + "" + `"`+ key + `"`+": " +`"`+ stringify(val, indent+"") +`"`+ ","
+			}
+			
+		}
+		result = result[:len(result)-1]
+		result += indent
+		result += `}`
+		return result
+	case []interface{}:
+		result := `[`
+		for _, val := range v {
+			result += indent + "" +`"`+ stringify(val, indent+"") + `"`+","
+		}
+		result = result[:len(result)-1]
+		result += indent
+		result += `]`
+		return result
+	default:
+		return fmt.Sprintf("%v", v)
+	}
+}
+
+func stringify2(data interface{})string{
+	// 去除多余符号，使string 可以被json 格式化
+	c:= stringify(data,"")
+	c = strings.Replace(c, `}"`, `}`, -1)
+	c = strings.Replace(c, `"{`, `{`, -1)
+	c = strings.Replace(c, `]"`, `]`, -1)
+	c = strings.Replace(c, `"[`, `[`, -1)
+	return c
+}
+
 // 调用 谷歌 ai
 func Generatetext(w http.ResponseWriter, body []byte) {
 
@@ -266,31 +315,125 @@ func Generatetext(w http.ResponseWriter, body []byte) {
 	log.Debug("==== 请求 data  start  ====")
 	log.Debug(data)
 	log.Debug("==== 请求 data  end    ====")
-	
+	length := len(data.Messages)
+	log.Debug("==== data.Messages 数量    ====\n",length)
 
-	// 提取messages字段的所有内容
-	var message_txt string
-	for _, msg := range data.Messages {
-		log.Debugf("Role: %s, Content: %s\n", msg.Role, msg.Content)
-		//message_txt = fmt.Sprintf("%s\n\n【%s】:%s\n", message_txt, msg.Role, msg.Content)
-		message_txt = fmt.Sprintf("%s\n\n%s\n", message_txt, msg.Content)
+	log.Debug("==== data.tools 数量    ====\n",len(data.Tools))
+
+
+
+	for _,tool := range data.Tools{
+		log.Debug("==== 请求 tools    ====")
+		log.Debug(tool.FX)
+		a:=stringify2(tool.FX)
+		log.Debug("==== ret: \n",a)
 
 	}
 
-	// // 打印请求体
-	// log.Debugln("请求体:")
-	// log.Debugln(string(body))
-	google_ai(w, message_txt)
+
+
+	// // 打印提取的函数信息
+	// fmt.Println("提取的函数信息:")
+	// for _, tool := range data.Tools {
+	// 	fmt.Println("函数名称:", tool.Fx.Description)
+
+		// fmt.Println("函数描述:", tool.Description)
+		// fmt.Println("函数参数:")
+		// for paramName, paramDetails := range tool.Parameters {
+		// 	fmt.Println("  参数名:", paramName)
+		// 	paramType := paramDetails.(map[string]interface{})["type"].(string)
+		// 	fmt.Println("  参数类型:", paramType)
+		// 	paramDescription := paramDetails.(map[string]interface{})["description"].(string)
+		// 	fmt.Println("  参数描述:", paramDescription)
+		// }
+		// fmt.Println("函数URL:", tool.URL)
+		// fmt.Println()
+	//}
+	
+
+	
+	// 整理请求json
+	if length == 1{
+		// 只有一条
+		for _, msg := range data.Messages{
+			log.Debugf("Role: %s, Content: %s\n", msg.Role, msg.Content)
+			if len(data.Tools) == 0{
+				payload := fmt.Sprintf(`{"contents":[{"parts":[{"text": "%s"}]}]}`, msg.Content)
+				google_ai(w, payload)
+				break
+
+			} else {
+				tools :=""
+				for _,tool := range data.Tools{
+					tools += fmt.Sprintf(`%s,`,stringify2(tool.FX))
+				}
+				tools = tools[:len(tools)-1]
+				payload := fmt.Sprintf(`{"contents":{"parts":{"text":"%s"},"role":"user"},"tools":[{"function_declarations":[%s]}]}`, msg.Content,tools)
+				
+				google_ai(w, payload)
+				break
+
+
+			}
+				
+			
+			
+		}
+	} else {
+		msg_txt := ""
+		for _, msg := range data.Messages{
+			log.Debugf("Role: %s, Content: %s\n", msg.Role, msg.Content)
+
+			if msg.Role == "user"{
+				msg_txt += fmt.Sprintf(`{"role":"user","parts":[{"text":"%s"}]},`,  msg.Content)
+			} else if  msg.Role == "assistant" {
+				msg_txt += fmt.Sprintf(`{"role":"model","parts":[{"text":"%s"}]},`, msg.Content)
+			} 
+		
+		}
+		msg_txt = msg_txt[:len(msg_txt)-1] //最后 ，  删除
+
+		if len(data.Tools) == 0{
+			payload := fmt.Sprintf(`{"contents":[%s]}`, msg_txt)
+			google_ai(w, payload)
+		} else {
+			tools :=""
+			for _,tool := range data.Tools{
+				tools += fmt.Sprintf(`%s,`,stringify2(tool.FX))
+			}
+			tools = tools[:len(tools)-1]
+
+			payload := fmt.Sprintf(`{"contents":[%s],"tools":[{"functionDeclarations":[%s]}]}`, msg_txt,tools)
+			google_ai(w, payload)
+		}
+
+	}
+	
+	
+
+	// // 提取messages字段的所有内容
+	// var message_txt string
+	// for _, msg := range data.Messages {
+	// 	log.Debugf("Role: %s, Content: %s\n", msg.Role, msg.Content)
+	// 	//message_txt = fmt.Sprintf("%s\n\n【%s】:%s\n", message_txt, msg.Role, msg.Content)
+	// 	message_txt = fmt.Sprintf("%s\n\n%s\n", message_txt, msg.Content)
+
+	// }
+
+	// // // 打印请求体
+	// // log.Debugln("请求体:")
+	// // log.Debugln(string(body))
+	// google_ai(w, message_txt)
 
 }
 
-func google_ai(w http.ResponseWriter, Prompt string) {
+func google_ai(w http.ResponseWriter, payload string) {
+	// 打印请求体
+	log.Debugln("请求体:")
+	log.Debugln(payload)
 
-	log.Debugln("对模型的提问", Prompt)
 	// Ensure client is initialized
 	clientInit.Do(InitializeGenerativeClient)
-
-	payload := fmt.Sprintf(`{"contents":[{"parts":[{"text": "%s"}]}]}`, Prompt)
 
 	req, err := http.NewRequest("POST", post_url, bytes.NewBuffer([]byte(payload)))
 	if err != nil {
@@ -318,40 +461,42 @@ func printResponse(w http.ResponseWriter, resp *http.Response) {
 	content :=""  // 返回内容
 	for scanner.Scan() {
 		line := scanner.Text()
+		
+
 		content += line
 
 
-		// // 如果行中包含 "text"，则打印该行
-		// if strings.Contains(line, "text") {
-		// 	log.Debugln(line)
-		// 	a := len(line)
-		// 	log.Debugln(a)
+		// 如果行中包含 "text"，则打印该行
+		if strings.Contains(line, "text") {
+			
+			a := len(line)
+			log.Debugln(a)
 
-		// 	b := strings.Index(line, "text")
+			b := strings.Index(line, "text")
 
-		// 	log.Debugln(b)
+			log.Debugln(b)
 
-			// 删除开头和结尾多余的
-			// c := line[b+8 : a-1]
+			//删除开头和结尾多余的
+			c := line[b+8 : a-1]
 
-			// // 去除多余符号
-			// c = strings.Replace(c, "\\n", "\n", -1)
+			// 去除多余符号
+			c = strings.Replace(c, "\\n", "\n", -1)
 
-			// // /t 替换为4个空格
-			// c = strings.Replace(c, "\t", "    ", -1)
+			// /t 替换为4个空格
+			c = strings.Replace(c, "\t", "    ", -1)
 
-			// // \" 替换为  "
-			// c = strings.Replace(c, `\"`, `"`, -1)
+			// \" 替换为  "
+			c = strings.Replace(c, `\"`, `"`, -1)
 
-			// // \' 替换为  '
-			// c = strings.Replace(c, `\'`, `'`, -1)
+			// \' 替换为  '
+			c = strings.Replace(c, `\'`, `'`, -1)
 
 			//index := strings.Index(line, "text:")
-			// log.Debugln(c)
-			// stream_retrn(w, c)
-			// log.Debugln("-----------------")
+			log.Debugln(c)
+			stream_retrn(w, c)
+			log.Debugln("-----------------")
 
-		// }
+		}
 	}
 
 	if err := scanner.Err(); err != nil {
@@ -359,36 +504,68 @@ func printResponse(w http.ResponseWriter, resp *http.Response) {
 		return
 	}
 
-	log.Debugln("==== 返回内容 start  ====")
-	log.Debugln(content)
-	log.Debugln("==== 返回内容 end  ====")
+	// log.Debugln("==== 返回内容 start  ====")
+	// log.Debugln(content)
+	// log.Debugln("==== 返回内容 end  ====")
 
-	content = content_pare(content)
-	log.Debugln("==== 整理1  start  ====")
-	log.Debugln(content)
-	log.Debugln("==== 整理1  end  ====")
+	// content = content_pare(content)
+	// log.Debugln("==== 整理1  start  ====")
+	// log.Debugln(content)
+	// // realtime-weather____fetchCurrentWeather
+	// // {"city": "上海"}
 
-	stream_retrn(w, "test")
+	// if strings.Contains(content, "functionCall"){
+	// 	// 含有指定字符 
+	// 	var data []map[string]interface{}
+	// 	err := json.Unmarshal([]byte(content), &data)
+	// 	if err != nil {
+	// 		fmt.Println("Error:", err)
+	// 		return
+	// 	}
+	
+	// 	for _, candidate := range data {
+	// 		candidates := candidate["candidates"].([]interface{})
+	// 		for _, c := range candidates {
+	// 			content := c.(map[string]interface{})["content"].(map[string]interface{})
+	// 			parts := content["parts"].([]interface{})
+	// 			for _, part := range parts {
+	// 				functionCall := part.(map[string]interface{})["functionCall"].(map[string]interface{})
+	// 				name := functionCall["name"].(string)
+	// 				args_interface := functionCall["args"].(map[string]interface{})
+	// 				fmt.Println("Function Name:", name)
+	// 				fmt.Println("args:", stringify2(args_interface))
+	// 			}
+	// 		}
+	// 	}
+
+	// }
+
+
+
+	// log.Debugln("==== 整理1  end  ====")
+
+	//stream_retrn(w, "test")
 	//回复结束
 	jsondata := []byte("data:[DONE]\n\n")
 	w.Write(jsondata)
 	w.(http.Flusher).Flush() // 刷新缓冲区，将数据发送到客户端
 }
 
-func content_pare(c string) string {
-	// 去除多余符号
-	c = strings.Replace(c, "\\n", "\n", -1)
+// func content_pare(c string) string {
+// 	// 去除多余符号
+// 	c = strings.Replace(c, "\\n", "\n", -1)
 
-	// /t 替换为4个空格
-	c = strings.Replace(c, "\t", "    ", -1)
+// 	// /t 替换为4个空格
+// 	c = strings.Replace(c, "\t", "    ", -1)
 
-	// \" 替换为  "
-	c = strings.Replace(c, `\"`, `"`, -1)
+// 	// \" 替换为  "
+// 	c = strings.Replace(c, `\"`, `"`, -1)
 
-	// \' 替换为  '
-	c = strings.Replace(c, `\'`, `'`, -1)
-	return c	
-}
+// 	// \' 替换为  '
+// 	c = strings.Replace(c, `\'`, `'`, -1)
+// 	return c	
+// }
+
 
 // txt 文本，转流式 返回
 func stream_retrn(w http.ResponseWriter, datatmp string) {
